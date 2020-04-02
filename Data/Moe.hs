@@ -7,6 +7,7 @@ module Data.Moe(
     normalize
 ) where
 
+import Control.Monad(ap)
 import Control.Applicative(Alternative(..))
 
 type PAD = (Double, Double, Double)
@@ -26,18 +27,12 @@ instance Functor m => Functor (Detector m o) where
         init
         (\opts media -> fmap f $ extract opts media)
 
-instance (Monad m, Monoid o) => Applicative (Detector m o) where
-    pure x = Detector (return mempty) (\opts media -> return x)
-    Detector fi fe <*> Detector vi ve = Detector
-        (do x <- fi
-            y <- vi
-            return $ mappend x y)
-        (\opts media -> do f <- fe opts media
-                           x <- ve opts media
-                           return $ f x)
+instance (Monad m, Alternative m, Monoid o) => Applicative (Detector m o) where
+    pure = return
+    (<*>) = ap
 
-instance (Monad m, Monoid o) => Monad (Detector m o) where
-    return = pure
+instance (Monad m, Alternative m, Monoid o) => Monad (Detector m o) where
+    return x = Detector empty (\opts media -> return x)
     Detector init extract >>= f = Detector
         init
         (\opts media -> do emotions <- extract opts media
