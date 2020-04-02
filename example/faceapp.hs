@@ -1,3 +1,4 @@
+import Control.Applicative((<|>))
 import Data.Moe
 import Data.Moe.PAD
 import Data.Moe.Detector.FaceApp
@@ -13,3 +14,6 @@ main2 = do putStrLn "Enter a media:"
            x <- extractEmotions (toPAD <$> faceapp) opts media
            y <- extractEmotions (toPAD <$> faceapp) opts media
            return $ aggregate [x,y]
+
+main3 media = do opts <- initialize faceapp
+                 extractEmotions faceapp opts media <|> main3 media
