@@ -1,8 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module Data.Moe.Detector.FaceApp(
-    faceapp
+    faceapp,
+    FaceAppData(..)
 ) where
 
 import Prelude hiding (lookup)
@@ -10,10 +11,25 @@ import Network.Wreq
 import Control.Lens
 import Data.Text(Text, pack)
 import Data.Aeson.Lens(key, nth)
-import Data.Aeson(Result(..), Object, Value(..), fromJSON)
+import Data.Aeson(ToJSON(..), FromJSON, defaultOptions, genericToEncoding, encode, decode)
 import Data.HashMap.Strict(lookup)
 import Data.Scientific(toRealFloat)
-import Data.Moe(PAD, Media, Detector(..), Padeable(..), normalize)
+import GHC.Generics(Generic)
+import Data.Maybe(fromJust)
+import Data.Moe(Media, Detector(..))
+import Data.Moe.PAD(PAD, Padeable(..), normalize)
+
+data FaceAppData = FaceAppData {
+    happiness :: Double,
+    disgust :: Double,
+    sadness :: Double,
+    surprise :: Double,
+    fear :: Double,
+    anger :: Double
+} deriving (Generic, Show)
+
+instance ToJSON FaceAppData
+instance FromJSON FaceAppData
 
 faceappInit :: IO (String, String)
 faceappInit = do putStrLn "Enter api key:"
@@ -22,7 +38,7 @@ faceappInit = do putStrLn "Enter api key:"
                  secret_key <- getLine
                  return (api_key, secret_key)
 
-faceappExtract :: (String, String) -> Media -> IO (Result Object)
+faceappExtract :: (String, String) -> Media -> IO FaceAppData
 faceappExtract opts media =
     do r <- post "https://api-us.faceplusplus.com/facepp/v3/detect" [
            "api_key" := pack (fst opts),
@@ -30,18 +46,14 @@ faceappExtract opts media =
            "return_attributes" := pack "emotion",
            "image_url" := pack media]
        return (case r ^? responseBody . key "faces" . nth 0 . key "attributes" . key "emotion" of
-           Just json -> fromJSON json
-           Nothing   -> Error "unknown error")
+           Just json -> fromJust $ decode (encode json)
+           Nothing   -> error "")
 
-instance Padeable  (Result Object) where
-    toPAD (Error _) = (0.0, 0.0, 0.0)
-    toPAD (Success xs) = let get x = case lookup x xs of
-                                         Just (Number x) -> toRealFloat x
-                                         otherwise       -> 0.0
-                         in normalize 0 100 (
-                             1.0 * get "happiness" + 0.4 * get "disgust" + 0.2 * get "sadness" + 0.1 * get "anger" + 0.3 * get "fear",
-                             0.7 * get "sadness" + get "disgust" + get "surprise" + get "anger" + get "fear" + get "happiness",
-                             0.7 * get "fear" + 0.3 * get "disgust" + 0.7 * get "anger" + 0.3 * get "happiness")
+instance Padeable FaceAppData where
+    toPAD x = normalize 0 100 (
+                  1.0 * happiness x + 0.4 * disgust x + 0.2 * sadness x + 0.1 * anger x + 0.3 * fear x,
+                  0.7 * sadness x + disgust x + surprise x + anger x + fear x + happiness x,
+                  0.7 * fear x + 0.3 * disgust x + 0.7 * anger x + 0.3 * happiness x)
 
-faceapp :: Detector IO (String, String) (Result Object)
+faceapp :: Detector IO (String, String) FaceAppData
 faceapp = Detector faceappInit faceappExtract

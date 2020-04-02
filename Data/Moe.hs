@@ -1,16 +1,12 @@
 module Data.Moe(
-    PAD,
     Media,
     Detector(..),
-    Padeable(..),
-    runDetector,
-    normalize
+    runDetector
 ) where
 
 import Control.Monad(ap)
 import Control.Applicative(Alternative(..))
 
-type PAD = (Double, Double, Double)
 type Media = String
 
 -- | Detector Monad Options Emotions
@@ -18,9 +14,6 @@ data Detector m o e = Detector {
     initialize :: m o,
     extractEmotions :: o -> Media -> m e
 }
-
-class Padeable e where
-    toPAD :: e -> PAD
 
 instance Functor m => Functor (Detector m o) where
     fmap f (Detector init extract) = Detector
@@ -32,7 +25,7 @@ instance (Monad m, Alternative m, Monoid o) => Applicative (Detector m o) where
     (<*>) = ap
 
 instance (Monad m, Alternative m, Monoid o) => Monad (Detector m o) where
-    return x = Detector empty (\opts media -> return x)
+    return x = Detector (return mempty) (\opts media -> return x)
     Detector init extract >>= f = Detector
         init
         (\opts media -> do emotions <- extract opts media
@@ -41,16 +34,11 @@ instance (Monad m, Alternative m, Monoid o) => Monad (Detector m o) where
                               extractEmotions detector opts media)
 
 instance (Monad m, Alternative m, Monoid o, Monoid (m o)) => Alternative (Detector m o) where
-    empty = Detector empty (\opts media -> empty)
+    empty = Detector (return mempty) (\opts media -> empty)
     Detector i1 e1 <|> Detector i2 e2 = Detector
         (mappend i1 i2)
         (\opts media -> e1 opts media <|> e2 opts media)
 
-normalize :: Double -> Double -> PAD -> PAD
-normalize min max (a,b,c) =  let [x,y,z] = map (\x -> (x-min)/(max-min)) [a,b,c] in (x,y,z)
-
-runDetector :: (Monad m, Padeable e) => Detector m o e -> Media -> m PAD
+runDetector :: Monad m => Detector m o e -> Media -> m e
 runDetector detector media = do opts <- initialize detector
-                                emotions <- extractEmotions detector opts media
-                                return $ toPAD emotions
-
+                                extractEmotions detector opts media
