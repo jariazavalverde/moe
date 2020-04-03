@@ -5,6 +5,7 @@ module Data.Moe(
 ) where
 
 import Control.Applicative(Alternative(..))
+import Control.Monad(MonadPlus(..))
 
 type Media = String
 
@@ -18,16 +19,18 @@ instance Functor m => Functor (Detector m) where
 
 instance Applicative m => Applicative (Detector m) where
     pure x = Detector (\media -> pure x)
-    Detector f <*> Detector x = Detector (\media -> f media <*> x media)
+    f <*> x = Detector (\media -> runDetector f media <*> runDetector x media)
 
 instance Monad m => Monad (Detector m) where
     return x = Detector (\media -> return x)
-    Detector run >>= f = Detector (\media -> do emotions <- run media
-                                                runDetector (f emotions) media)
+    x >>= f = Detector (\media -> do emotions <- runDetector x media
+                                     runDetector (f emotions) media)
 
 instance Alternative m => Alternative (Detector m) where
     empty = Detector (\media -> empty)
     x <|> y = Detector (\media -> runDetector x media <|> runDetector y media)
+
+instance (Monad m, Alternative m) => MonadPlus (Detector m)
 
 initialize :: Monad m => (a -> Detector m b) -> m a -> Detector m b
 initialize detector init = Detector (\media -> do config <- init
