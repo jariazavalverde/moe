@@ -51,7 +51,7 @@ data FaceAppData = FaceAppData {
 } deriving (Generic, Show)
 ```
 
-and three methods:
+and three functions:
 
 ```haskell
 faceapp :: Detector IO FaceAppData
