@@ -9,13 +9,13 @@ import Control.Monad(MonadPlus(..))
 
 type Media = String
 
--- | Detector Monad Emotions
+-- | Detector Monad Emotion
 data Detector m e = Detector {
     runDetector :: Media -> m e
 }
 
 instance Functor m => Functor (Detector m) where
-    fmap f (Detector run) = Detector (fmap f . run)
+    fmap f x = Detector (fmap f . runDetector x)
 
 instance Applicative m => Applicative (Detector m) where
     pure x = Detector (\media -> pure x)

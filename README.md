@@ -15,9 +15,13 @@ data Detector m e = Detector {
 Moe uses the [PAD emotional state model](https://en.wikipedia.org/wiki/PAD_emotional_state_model) to describe and measure emotional states. The `Padeable` class (see [Data.Moe.PAD](Data/Moe/PAD.hs)) allows the results of different detectors to be aggregated together.
 
 ```haskell
-type PAD = (Double, Double, Double)
+data PAD = PAD {
+    pleasure :: Double,
+    arousal :: Double,
+    dominance :: Double
+}
 
-class Padeable e where
+class Emotion e where
     toPAD :: e -> PAD
 ```
 
@@ -27,8 +31,8 @@ class Padeable e where
 In Moe, `Detector`s are monads, so we can create new detectors from others in a concise and elegant way:
 
 ```haskell
-isPleasant :: (Monad m, Padeable e) => Detector m e -> Double -> Detector m Bool
-isPleasant detector eps = do (a,_,_) <- toPAD <$> detector
+isPleasant :: (Monad m, Emotion e) => Detector m e -> Double -> Detector m Bool
+isPleasant detector eps = do a <- pleasure . toPAD <$> detector
                              return (a > eps)
 
 ghci> runDetector (filterM (isPleasant detector) [0.3,0.6,0.9]) "path/to/image"

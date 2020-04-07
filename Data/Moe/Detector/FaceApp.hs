@@ -22,7 +22,7 @@ import Control.Exception(try)
 import Control.Monad(guard)
 import Control.Applicative((<|>), empty)
 import Data.Moe(Media, Detector(..), initialize)
-import Data.Moe.PAD(PAD, Padeable(..), normalize)
+import Data.Moe.PAD(PAD(..), Emotion(..), normalize)
 
 data FaceAppData = FaceAppData {
     happiness :: Double,
@@ -36,11 +36,11 @@ data FaceAppData = FaceAppData {
 instance ToJSON FaceAppData
 instance FromJSON FaceAppData
 
-instance Padeable FaceAppData where
-    toPAD x = normalize 0 100 (
-                  1.0 * happiness x + 0.4 * disgust x + 0.2 * sadness x + 0.1 * anger x + 0.3 * fear x,
-                  0.7 * sadness x + disgust x + surprise x + anger x + fear x + happiness x,
-                  0.7 * fear x + 0.3 * disgust x + 0.7 * anger x + 0.3 * happiness x)
+instance Emotion FaceAppData where
+    toPAD x = normalize 0 100 (PAD
+                  (1.0 * happiness x + 0.4 * disgust x + 0.2 * sadness x + 0.1 * anger x + 0.3 * fear x)
+                  (0.7 * sadness x + disgust x + surprise x + anger x + fear x + happiness x)
+                  (0.7 * fear x + 0.3 * disgust x + 0.7 * anger x + 0.3 * happiness x))
 
 faceappWith :: (String,String) -> Detector IO FaceAppData
 faceappWith (api_key,api_secret) = Detector (\media ->
