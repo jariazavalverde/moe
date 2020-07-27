@@ -5,6 +5,7 @@ module Data.Moe.Detector.FaceApp(
     faceapp,
     faceappLogin,
     faceappWith,
+    faceappFrom,
     FaceAppData(..)
 ) where
 
@@ -21,7 +22,7 @@ import Data.Maybe(fromJust, isJust)
 import Control.Exception(try)
 import Control.Monad(guard)
 import Control.Applicative((<|>), empty)
-import Data.Moe(Media, Detector(..), initialize)
+import Data.Moe.Detector(Media, DetectorT, mkDetectorT, initDetectorT)
 import Data.Moe.PAD(PAD(..), Emotion(..), normalize)
 
 data FaceAppData = FaceAppData {
@@ -42,8 +43,8 @@ instance Emotion FaceAppData where
                   (0.7 * sadness x + disgust x + surprise x + anger x + fear x + happiness x)
                   (0.7 * fear x + 0.3 * disgust x + 0.7 * anger x + 0.3 * happiness x))
 
-faceappWith :: (String,String) -> Detector IO FaceAppData
-faceappWith (api_key,api_secret) = Detector (\media ->
+faceappWith :: (String,String) -> DetectorT IO FaceAppData
+faceappWith (api_key,api_secret) = mkDetectorT (\media ->
     do r <- try $ post "https://api-us.faceplusplus.com/facepp/v3/detect" [
             "api_key" := pack api_key,
             "api_secret" := pack api_secret,
@@ -60,8 +61,13 @@ faceappLogin :: IO (String,String)
 faceappLogin = do putStrLn "Enter api key:"
                   api_key <- getLine
                   putStrLn "Enter api secret:"
-                  secret_key <- getLine
-                  return (api_key,secret_key)
+                  api_secret <- getLine
+                  return (api_key,api_secret)
 
-faceapp :: Detector IO FaceAppData
-faceapp = initialize faceappWith faceappLogin
+faceappFrom :: String -> DetectorT IO FaceAppData
+faceappFrom path = initDetectorT faceappWith $ do content <- readFile path
+                                                  let (api_key:api_secret:_) = lines content
+                                                  return (api_key,api_secret)
+
+faceapp :: DetectorT IO FaceAppData
+faceapp = initDetectorT faceappWith faceappLogin

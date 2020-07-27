@@ -1,3 +1,5 @@
+credentials/
+
 dist
 dist-*
 cabal-dev
