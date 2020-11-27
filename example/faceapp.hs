@@ -1,62 +1,37 @@
-import Control.Applicative((<|>), optional)
-import Control.Monad(mfilter, filterM, guard)
-import Control.Monad.Writer(WriterT(..), Sum(..), Product(..))
-import Data.Moe.Detector
-import Data.Moe.PAD
-import Data.Moe.Detector.FaceApp
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeOperators #-}
+
+import Data.Detector
+import Data.Detector.FaceApp(faceapp, faceappFrom)
+import Data.Detector.Dummy
+import Data.Emotion
+import Data.Channel
+import Data.Channel.Face
+import Data.Channel.Voice
 
 run1 :: IO PAD
 run1 = do putStrLn "Enter a media:"
           media <- getLine
-          login <- faceappLogin
-          x <- runDetectorT (toPAD <$> faceappWith login) media
-          y <- runDetectorT (toPAD <$> faceappWith login) media
-          return $ aggregate [x,y]
+          runDetectorT (toPAD <$> faceappFrom "credentials/faceapp.key") (Face media)
 
-detector1 :: DetectorT IO PAD
-detector1 = do x <- toPAD <$> faceapp
-               y <- toPAD <$> faceapp
-               return $ aggregate [x,y]
+isHappy :: (Monad m, Emotion e) => m e -> m Bool
+isHappy d = (> 0.5) . joy . toEkman <$> d
 
-detector2 :: DetectorT IO FaceAppData
-detector2 = faceapp <|> detector2
+isAngry :: (Monad m, Emotion e) => m e -> m Bool
+isAngry = isHappy
 
-detector3 :: DetectorT IO (Maybe FaceAppData)
-detector3 = optional faceapp
+isHappyOrAngry :: (Monad m, Emotion e) => m e -> m Bool
+isHappyOrAngry d = (||) <$> isHappy d <*> isAngry d
 
-isPleasant :: (Monad m, Emotion e) => DetectorT m e -> Double -> DetectorT m Bool
-isPleasant detector eps = do a <- pleasure . toPAD <$> detector
-                             return (a > eps)
+d1 :: Face String :<: r => DetectorT r IO PAD
+d1 = toPAD <$> faceappFrom "credentials/faceapp.key"
 
-pleasant :: Emotion e => DetectorT IO e -> DetectorT IO (Maybe e)
-pleasant = optional . mfilter (\emotions -> pleasure (toPAD emotions) >= 0.5)
+d2 :: (Face String :<: r, () :<: r) => DetectorT r IO (PAD,())
+d2 = do x <- d1
+        y <- dummy
+        return (x,y)
 
-pleasant' :: Emotion e => DetectorT IO e -> DetectorT IO (Maybe e)
-pleasant' detector = optional $
-                        do emotions <- detector
-                           guard $ pleasure (toPAD emotions) > 0.5
-                           return emotions
-
-moetip4 :: (Monad m, Emotion e, Foldable m) => [DetectorT m e] -> DetectorT m PAD
-moetip4 xs = fmap aggregate $ sequence (map (fmap toPAD) xs)
-
-moetip5 :: (Applicative f, Emotion e) => DetectorT f e -> DetectorT f e -> DetectorT f PAD
-moetip5 f g = (/ 2) <$> ((+) <$> fmap toPAD f <*> fmap toPAD g)
-
-moetip6 :: (Monad m, Emotion e) => m e -> WriterT [PAD] m Bool
-moetip6 detector = WriterT $ do emotions <- toPAD <$> detector
-                                return (pleasure emotions > 0.5, [emotions])
-
-moetip6' :: WriterT [PAD] (DetectorT IO) Bool
-moetip6' = do emotions1 <- moetip6 $ faceappFrom "credentials/faceapp.txt"
-              emotions2 <- moetip6 $ faceappFrom "credentials/faceapp.txt"
-              return (emotions1 && emotions2)
-
-moetip7 :: (Monad m, Emotion e) => m e -> WriterT (m (Sum PAD)) m Bool
-moetip7 detector = WriterT $ do emotions <- toPAD <$> detector
-                                return (pleasure emotions > 0.5, (Sum . toPAD) <$> detector)
-
-moetip7' :: WriterT (DetectorT IO (Sum PAD)) (DetectorT IO) Bool
-moetip7' = do emotions1 <- moetip7 $ faceappFrom "credentials/faceapp.txt"
-              emotions2 <- moetip7 $ faceappFrom "credentials/faceapp.txt"
-              return (emotions1 && emotions2)
+mean :: (Monad m, Emotion a, Emotion b) => m a -> m b -> m PAD 
+mean d1 d2 = do x <- toPAD <$> d1
+                y <- toPAD <$> d2
+                return ((x+y)/2)
