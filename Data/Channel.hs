@@ -8,7 +8,7 @@ module Data.Channel(
     (:<:)(..)
 ) where
 
-data (f :+: g) = f :+: g deriving (Show)
+data (f :+: g) = f :+: g deriving (Eq, Ord, Show)
 infixr 1 :+:
 
 class a :<: b where

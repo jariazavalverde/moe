@@ -5,5 +5,5 @@ module Data.Channel.Voice(
     Voice(..)
 ) where
 
-newtype Voice a = Voice { getMediaVoice :: a }
-    deriving (Read, Show, Eq, Ord)
+newtype Voice a = Voice { getVoiceChannel :: a }
+    deriving (Functor, Read, Show, Eq, Ord)

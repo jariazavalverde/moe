@@ -1,32 +1,21 @@
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE FlexibleInstances #-}
-
 module Data.Emotion(
     PAD(..),
-    Ekman(..),
-    Emotion(..),
-    normalize,
-    aggregate,
     mapPAD,
-    zipPADWith
+    zipPADWith,
+    normalizePAD,
+    Ekman(..),
+    mapEkman,
+    zipEkmanWith,
+    normalizeEkman,
+    Emotion(..)
 ) where
 
-import Data.Matrix(Matrix, fromLists, fromList, (!))
-
+-- | PAD
 data PAD = PAD {
     pleasure :: Double,
     arousal :: Double,
     dominance :: Double
-} deriving (Eq, Show)
-
-data Ekman = Ekman {
-    anger :: Double,
-    disgust :: Double,
-    fear :: Double,
-    joy :: Double,
-    sadness :: Double,
-    surprise :: Double
-} deriving (Eq, Show)
+} deriving (Eq, Ord, Read, Show)
 
 instance Num PAD where
     (+) = zipPADWith (+)
@@ -40,13 +29,51 @@ instance Fractional PAD where
     fromRational x = let x' = fromRational x in PAD x' x' x'
     (/) = zipPADWith (/)
 
+mapPAD :: (Double -> Double) -> PAD -> PAD
+mapPAD f (PAD a b c) = PAD (f a) (f b) (f c)
+
+zipPADWith :: (Double -> Double -> Double) -> PAD -> PAD -> PAD
+zipPADWith f (PAD a b c) (PAD x y z) = PAD (f a x) (f b y) (f c z)
+
+normalizePAD :: Double -> Double -> PAD -> PAD
+normalizePAD min max =  mapPAD (\x -> (x-min)/(max-min))
+
+-- | Ekman
+data Ekman = Ekman {
+    anger :: Double,
+    disgust :: Double,
+    fear :: Double,
+    joy :: Double,
+    sadness :: Double,
+    surprise :: Double
+} deriving (Eq, Ord, Read, Show)
+
+instance Num Ekman where
+    (+) = zipEkmanWith (+)
+    (-) = zipEkmanWith (-)
+    (*) = zipEkmanWith (*)
+    abs = mapEkman abs
+    signum = mapEkman signum
+    fromInteger x = let x' = fromIntegral x in Ekman x' x' x' x' x' x'
+
+instance Fractional Ekman where
+    fromRational x = let x' = fromRational x in Ekman x' x' x' x' x' x'
+    (/) = zipEkmanWith (/)
+
+mapEkman :: (Double -> Double) -> Ekman -> Ekman
+mapEkman g (Ekman a b c d e f) = Ekman (g a) (g b) (g c) (g d) (g e) (g f)
+
+zipEkmanWith :: (Double -> Double -> Double) -> Ekman -> Ekman -> Ekman
+zipEkmanWith g (Ekman a b c d e f) (Ekman a' b' c' d' e' f') =
+    Ekman (g a a') (g b b') (g c c') (g d d') (g e e') (g f f')
+
+normalizeEkman :: Double -> Double -> Ekman -> Ekman
+normalizeEkman min max = mapEkman (\x -> (x-min)/(max-min))
+
+-- | Emotion
 class Emotion e where
     toPAD :: e -> PAD
     toPAD e = let (Ekman a d f h s u) = toEkman e
-                  --pad = zhiguo * fromList 5 1 [a,d,f,h,s]
-                  --pleasure = h - 0.4*d -0.2*s -0.1*a - 0.3*f 
-                  --arousal = -0.7*s + 0.3*d + 0.3*u + 0.3*a + 0.2*f - 0.2*h
-                  --dominance = -0.7*f + 0.3*d + 0.7*a + 0.3*h
                   pleasure = -0.51*a -0.4*d - 0.64*f + 0.4*h - 0.4*s
                   arousal = 0.59*a +0.2*d + 0.6*f + 0.2*h - 0.2*s
                   dominance = 0.25*a + 0.1*d - 0.43*f + 0.15*h - 0.5*s
@@ -63,10 +90,6 @@ class Emotion e where
         in Ekman (anger/total) (disgust/total) (fear/total) (joy/total) (sadness/total) (surprise/total)
     {-# MINIMAL toPAD | toEkman #-}
 
-instance Emotion String where
-    toPAD x = let (a,b,c) = read x in PAD a b c
-    toEkman x = let (a,b,c,d,e,f) = read x in Ekman a b c d e f
-
 instance Emotion PAD where
     toPAD = id
 
@@ -76,23 +99,3 @@ instance Emotion Ekman where
 instance Emotion () where
     toPAD _ = PAD 0 0 0
     toEkman _ = Ekman 0 0 0 0 0 0
-
-zhiguo :: Matrix Double
-zhiguo = fromLists [
-    [-0.51, -0.40, -0.64,  0.40, -0.40],
-    [ 0.59,  0.20,  0.60,  0.20, -0.20],
-    [ 0.25,  0.10, -0.43,  0.15, -0.50]]
-
-normalize :: Double -> Double -> PAD -> PAD
-normalize min max (PAD a b c) =  let [x,y,z] = map (\x -> (x-min)/(max-min)) [a,b,c] in (PAD x y z)
-
-mapPAD :: (Double -> Double) -> PAD -> PAD
-mapPAD f (PAD a b c) = PAD (f a) (f b) (f c)
-
-zipPADWith :: (Double -> Double -> Double) -> PAD -> PAD -> PAD
-zipPADWith f (PAD a b c) (PAD x y z) = PAD (f a x) (f b y) (f c z)
-
-aggregate :: Foldable t => t PAD -> PAD
-aggregate xs = let (PAD x y z) = foldl1 (\(PAD as bs cs) (PAD a b c) -> PAD (as+a) (bs+b) (cs+c)) xs
-                   len = fromIntegral $ length xs
-               in PAD (x/len) (y/len) (z/len)

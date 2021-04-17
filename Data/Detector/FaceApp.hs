@@ -16,10 +16,10 @@ import Control.Lens
 import Data.Text(Text, pack)
 import Data.ByteString.Lazy.Internal(ByteString)
 import Data.Aeson.Lens(key, nth)
-import Data.Aeson(Object, ToJSON(..), FromJSON, defaultOptions, genericToEncoding, encode, decode)
+import Data.Aeson(Object, ToJSON(..), FromJSON, encode, decode)
 import Data.Scientific(toRealFloat)
 import GHC.Generics(Generic)
-import Data.Maybe(fromJust, isJust)
+import Data.Maybe(fromJust)
 import Control.Exception(try)
 import Control.Monad(guard)
 import Control.Applicative((<|>), empty)
@@ -36,7 +36,7 @@ data FaceAppData = FaceAppData {
     fear :: Double,
     anger :: Double,
     neutral :: Double
-} deriving (Generic, Show)
+} deriving (Generic, Show, Eq)
 
 instance ToJSON FaceAppData
 instance FromJSON FaceAppData
@@ -58,8 +58,7 @@ faceapp (api_key, api_secret) = mkDetectorT (\input ->
             "return_attributes" := pack "emotion",
             "image_url" := pack (getFaceChannel $ channel input)] :: IO (Either HttpException (Response ByteString))
        case r of
-           Left ex   -> do print ex
-                           empty
+           Left ex   -> print ex >> empty
            Right val -> do guard $ val ^. responseStatus . statusCode == 200
                            case val ^? responseBody . key "faces" . nth 0 . key "attributes" . key "emotion" of
                                Just json -> return $ fromJust (decode (encode json))

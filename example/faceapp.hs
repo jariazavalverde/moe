@@ -3,6 +3,7 @@
 
 import Data.Detector
 import Data.Detector.FaceApp(faceapp, faceappFrom)
+import Data.Detector.VoiceApp(voiceapp, voiceappFrom)
 import Data.Detector.Dummy
 import Data.Emotion
 import Data.Channel
