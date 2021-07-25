@@ -23,7 +23,6 @@ import Data.Scientific(toRealFloat)
 import GHC.Generics(Generic)
 import Data.WAVE(getWAVEFile, waveFrameRate, waveHeader)
 import "base64" Data.ByteString.Base64(encodeBase64)
-import "text" Data.Text(unpack)
 import Data.Maybe(fromJust)
 import Control.Exception(try)
 import Control.Monad(guard)
@@ -61,7 +60,7 @@ instance Emotion VoiceAppDataItem where
     toEkman (VoiceAppDataItem "anger" x y) = 0{anger = y-x}
     toEkman (VoiceAppDataItem "excited" x y) = 0{surprise = y-x}
     toEkman (VoiceAppDataItem "frustration" x y) = 0{disgust = y-x}
-    toEkman (VoiceAppDataItem _ x y) = 0
+    toEkman (VoiceAppDataItem _ _ _) = 0
 
 instance Emotion VoiceAppData where
     toEkman (VoiceAppData xs) = normalizeEkman 0 (end $ last xs) $ sum (map toEkman xs)

@@ -10,5 +10,5 @@ module Data.Detector.Dummy(
 import Data.Detector(DetectorT, mkDetectorT)
 import Data.Channel((:<:)(..))
 
-dummy :: (() :<: r, Monad m) => DetectorT r m ()
+dummy :: Monad m => DetectorT r m ()
 dummy = mkDetectorT (\_ -> return ())

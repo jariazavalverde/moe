@@ -43,12 +43,13 @@ instance FromJSON FaceAppData
 
 instance Emotion FaceAppData where
     toEkman e = Ekman
-        (anger e / 100)
-        (disgust e / 100)
-        (fear e / 100)
-        (happiness e / 100)
-        (sadness e / 100)
-        (surprise e / 100)
+        (anger e / 50 - 1)
+        (disgust e / 50 - 1)
+        (fear e / 50 - 1)
+        (happiness e / 50 - 1)
+        (sadness e / 50 - 1)
+        (surprise e / 50 - 1)
+        (neutral e / 50 - 1)
 
 faceapp :: Face String :<: r => (String, String) -> DetectorT r IO FaceAppData
 faceapp (api_key, api_secret) = mkDetectorT (\input ->

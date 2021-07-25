@@ -1,9 +1,10 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeOperators #-}
 
+import Control.Monad.Writer
 import Data.Detector
-import Data.Detector.FaceApp(faceapp, faceappFrom)
-import Data.Detector.VoiceApp(voiceapp, voiceappFrom)
+import Data.Detector.FaceApp(faceapp, faceappFrom, faceappIO)
+import Data.Detector.VoiceApp(voiceapp, voiceappFrom, voiceappIO)
 import Data.Detector.Dummy
 import Data.Emotion
 import Data.Channel
@@ -16,10 +17,10 @@ run1 = do putStrLn "Enter a media:"
           runDetectorT (toPAD <$> faceappFrom "credentials/faceapp.key") (Face media)
 
 isHappy :: (Monad m, Emotion e) => m e -> m Bool
-isHappy d = (> 0.5) . joy . toEkman <$> d
+isHappy d = (> 0) . joy . toEkman <$> d
 
 isAngry :: (Monad m, Emotion e) => m e -> m Bool
-isAngry = isHappy
+isAngry d = (> 0) . anger . toEkman <$> d
 
 isHappyOrAngry :: (Monad m, Emotion e) => m e -> m Bool
 isHappyOrAngry d = (||) <$> isHappy d <*> isAngry d
@@ -32,7 +33,15 @@ d2 = do x <- d1
         y <- dummy
         return (x,y)
 
-mean :: (Monad m, Emotion a, Emotion b) => m a -> m b -> m PAD 
-mean d1 d2 = do x <- toPAD <$> d1
-                y <- toPAD <$> d2
-                return ((x+y)/2)
+mean :: (Num a, Fractional a, Traversable t, Monad m) => t (m a) -> m a
+mean ds = do xs <- sequence ds
+             return $ sum xs / (fromIntegral (length xs))
+
+wdetector :: (Face String :<: r, Voice String :<: r) => WriterT [String] (DetectorT r IO) PAD
+wdetector = do face <- lift $ faceappFrom "credentials/faceapp.key"
+               tell ["get face data: " ++ show face]
+               voice <- lift $ voiceappFrom "credentials/voiceapp.key"
+               tell ["get voice data: " ++ show voice]
+               let mean = (toPAD face + toPAD voice) / 2
+               tell ["(face + voice)/2: " ++ show mean]
+               return mean

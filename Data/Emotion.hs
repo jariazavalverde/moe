@@ -10,6 +10,8 @@ module Data.Emotion(
     Emotion(..)
 ) where
 
+import  Data.Matrix(Matrix, inverse, transpose, fromLists, toList)
+
 -- | PAD
 data PAD = PAD {
     pleasure :: Double,
@@ -45,7 +47,8 @@ data Ekman = Ekman {
     fear :: Double,
     joy :: Double,
     sadness :: Double,
-    surprise :: Double
+    surprise :: Double,
+    neutral :: Double
 } deriving (Eq, Ord, Read, Show)
 
 instance Num Ekman where
@@ -54,18 +57,18 @@ instance Num Ekman where
     (*) = zipEkmanWith (*)
     abs = mapEkman abs
     signum = mapEkman signum
-    fromInteger x = let x' = fromIntegral x in Ekman x' x' x' x' x' x'
+    fromInteger x = let x' = fromIntegral x in Ekman x' x' x' x' x' x' x'
 
 instance Fractional Ekman where
-    fromRational x = let x' = fromRational x in Ekman x' x' x' x' x' x'
+    fromRational x = let x' = fromRational x in Ekman x' x' x' x' x' x' x'
     (/) = zipEkmanWith (/)
 
 mapEkman :: (Double -> Double) -> Ekman -> Ekman
-mapEkman g (Ekman a b c d e f) = Ekman (g a) (g b) (g c) (g d) (g e) (g f)
+mapEkman h (Ekman a b c d e f g) = Ekman (h a) (h b) (h c) (h d) (h e) (h f) (h g)
 
 zipEkmanWith :: (Double -> Double -> Double) -> Ekman -> Ekman -> Ekman
-zipEkmanWith g (Ekman a b c d e f) (Ekman a' b' c' d' e' f') =
-    Ekman (g a a') (g b b') (g c c') (g d d') (g e e') (g f f')
+zipEkmanWith h (Ekman a b c d e f g) (Ekman a' b' c' d' e' f' g') =
+    Ekman (h a a') (h b b') (h c c') (h d d') (h e e') (h f f') (h g g')
 
 normalizeEkman :: Double -> Double -> Ekman -> Ekman
 normalizeEkman min max = mapEkman (\x -> (x-min)/(max-min))
@@ -73,22 +76,31 @@ normalizeEkman min max = mapEkman (\x -> (x-min)/(max-min))
 -- | Emotion
 class Emotion e where
     toPAD :: e -> PAD
-    toPAD e = let (Ekman a d f h s u) = toEkman e
-                  pleasure = -0.51*a -0.4*d - 0.64*f + 0.4*h - 0.4*s
-                  arousal = 0.59*a +0.2*d + 0.6*f + 0.2*h - 0.2*s
-                  dominance = 0.25*a + 0.1*d - 0.43*f + 0.15*h - 0.5*s
-        in PAD pleasure arousal dominance
+    toPAD e = let (Ekman e1 e2 e3 e4 e5 e6 e7) = toEkman e
+                  u = fromLists [[e1,e2,e3,e4,e5,e6,e7]]
+                  v = linearMap e
+                  v' = case inverse (v * transpose v) of
+                      Left msg -> error msg
+                      Right i  -> transpose v * i
+                  [p,a,d] = toList (u * v')
+               in PAD p a d
     toEkman :: e -> Ekman
     toEkman e = let (PAD p a d) = toPAD e
-                    anger = sqrt $ (p-(-0.51))^2 + (a-0.59)^2 + (d-0.25)^2
-                    disgust = sqrt $ (p-(-0.4))^2 + (a-0.2)^2 + (d-0.1)^2
-                    fear = sqrt $ (p-(-0.64))^2 + (a-0.6)^2 + (d-(-0.43))^2
-                    joy = sqrt $ (p-0.4)^2 + (a-0.2)^2 + (d-0.15)^2
-                    sadness = sqrt $ (p-(-0.4))^2 + (a-(-0.2))^2 + (d-(-0.5))^2
-                    surprise = 0
-                    total = anger + disgust + fear + joy + sadness + surprise
-        in Ekman (anger/total) (disgust/total) (fear/total) (joy/total) (sadness/total) (surprise/total)
+                    u = fromLists [[p,a,d]]
+                    v = linearMap e
+                    [e1,e2,e3,e4,e5,e6,e7] = toList (u * v)
+                in Ekman e1 e2 e3 e4 e5 e6 e7
+    linearMap :: e -> Matrix Double
+    linearMap _ = fromLists
+        {--[[-0.51, -0.40, -0.64,  0.40, -0.40],
+         [ 0.59,  0.20,  0.60,  0.20, -0.20],
+         [ 0.25,  0.10, -0.43,  0.15, -0.50]]--}
+        [[-0.29, -0.14, -0.19,  0.46, -0.30,  0.24,  0.52],
+         [ 0.19, -0.08,  0.14,  0.07, -0.11,  0.15,  0.53],
+         [-0.02, -0.02, -0.10,  0.19, -0.18,  0.08,  0.50]]
     {-# MINIMAL toPAD | toEkman #-}
+ 
+ 
 
 instance Emotion PAD where
     toPAD = id
@@ -98,4 +110,4 @@ instance Emotion Ekman where
 
 instance Emotion () where
     toPAD _ = PAD 0 0 0
-    toEkman _ = Ekman 0 0 0 0 0 0
+    toEkman _ = Ekman 0 0 0 0 0 0 0

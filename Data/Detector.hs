@@ -9,28 +9,25 @@ module Data.Detector(
 ) where
 
 import Control.Applicative(liftA2)
-import Control.Monad.Reader(ReaderT(..), runReader, runReaderT)
+import Control.Monad.Trans.Class(MonadTrans(..))
 import Data.Functor.Identity(Identity(..))
 
 -- | DetectorT Media Monad Emotion
-type DetectorT r m a = ReaderT r m a
+data DetectorT r m a = DetectorT { runDetectorT :: r -> m a }
 
 -- | Detector Media Emotion
 type Detector r a = DetectorT r Identity a
 
 -- | Make a detector from a function
 mkDetectorT :: Monad m => (r -> m a) -> DetectorT r m a
-mkDetectorT = ReaderT
+mkDetectorT = DetectorT
 
 mkDetector :: (r -> a) -> Detector r a
-mkDetector f = ReaderT (fmap Identity f)
+mkDetector f = DetectorT (fmap Identity f)
 
 -- | Run a detector
-runDetectorT :: Monad m => DetectorT r m a -> r -> m a
-runDetectorT = runReaderT
-
 runDetector :: Detector r a -> r -> a
-runDetector = runReader
+runDetector = fmap runIdentity  . runDetectorT
 
 -- | Make a detector from a function and an effect to initialize it
 initDetectorT :: Monad m => (a -> DetectorT r m b) -> m a -> DetectorT r m b
@@ -38,8 +35,18 @@ initDetectorT detector init = mkDetectorT
     (\media -> do config <- init
                   runDetectorT (detector config) media)
 
-instance (Applicative f, Monoid m) => Semigroup (ReaderT r f m) where
-    (<>) = liftA2 mappend
+instance Functor f => Functor (DetectorT r f) where
+    fmap f d = DetectorT (\r -> let x = runDetectorT d r in fmap f x)
 
-instance (Applicative f, Monoid m) => Monoid (ReaderT r f m) where
-    mempty = pure mempty
+instance Applicative f => Applicative (DetectorT r f) where
+    pure x = DetectorT (\_ -> pure x)
+    df <*> dx = DetectorT (\r -> let f = runDetectorT df r
+                                     x = runDetectorT dx r
+                                  in f <*> x)
+
+instance Monad m => Monad (DetectorT r m) where
+    d >>= f = DetectorT (\r -> do x <- runDetectorT d r
+                                  runDetectorT (f x) r)
+
+instance MonadTrans (DetectorT r) where
+    lift m = DetectorT (const m)
