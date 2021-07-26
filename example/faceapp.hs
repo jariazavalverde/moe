@@ -37,11 +37,22 @@ mean :: (Num a, Fractional a, Traversable t, Monad m) => t (m a) -> m a
 mean ds = do xs <- sequence ds
              return $ sum xs / (fromIntegral (length xs))
 
-wdetector :: (Face String :<: r, Voice String :<: r) => WriterT [String] (DetectorT r IO) PAD
-wdetector = do face <- lift $ faceappFrom "credentials/faceapp.key"
-               tell ["get face data: " ++ show face]
-               voice <- lift $ voiceappFrom "credentials/voiceapp.key"
-               tell ["get voice data: " ++ show voice]
-               let mean = (toPAD face + toPAD voice) / 2
-               tell ["(face + voice)/2: " ++ show mean]
-               return mean
+wd :: (Face String :<: r, Voice String :<: r) => WriterT [String] (DetectorT r IO) PAD
+wd = do face <- lift $ faceappFrom "credentials/faceapp.key"
+        tell ["get face data: " ++ show face]
+        voice <- lift $ voiceappFrom "credentials/voiceapp.key" (0,5)
+        tell ["get voice data: " ++ show voice]
+        let mean = (toPAD face + toPAD voice) / 2
+        tell ["(face + voice)/2: " ++ show mean]
+        return mean
+
+iod :: (Face String :<: r, Voice String :<: r) => DetectorT r IO PAD
+iod = do api_key <- lift getLine
+         api_secret <- lift getLine
+         face <- dummy
+         lift $ putStrLn ("get face data: " ++ show face)
+         voice <- dummy
+         lift $ putStrLn ("get voice data: " ++ show voice)
+         let mean = (toPAD face + toPAD voice) / 2
+         lift $ putStrLn ("(face + voice)/2: " ++ show mean)
+         return mean

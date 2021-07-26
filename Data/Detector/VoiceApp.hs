@@ -23,6 +23,8 @@ import Data.Scientific(toRealFloat)
 import GHC.Generics(Generic)
 import Data.WAVE(getWAVEFile, waveFrameRate, waveHeader)
 import "base64" Data.ByteString.Base64(encodeBase64)
+import System.Process(runCommand, waitForProcess)
+import System.Posix.Temp(mkstemp)
 import Data.Maybe(fromJust)
 import Control.Exception(try)
 import Control.Monad(guard)
@@ -65,10 +67,14 @@ instance Emotion VoiceAppDataItem where
 instance Emotion VoiceAppData where
     toEkman (VoiceAppData xs) = normalizeEkman 0 (end $ last xs) $ sum (map toEkman xs)
 
-voiceapp :: Voice String :<: r => String -> DetectorT r IO VoiceAppData
-voiceapp api_key = mkDetectorT (\input -> 
-    do wave <- getWAVEFile (getVoiceChannel $ channel input)
-       contents <- BS.readFile (getVoiceChannel $ channel input)
+voiceapp :: Voice String :<: r => String -> (Double,Double) -> DetectorT r IO VoiceAppData
+voiceapp api_key (start,end) = mkDetectorT (\input -> 
+    do let path = getVoiceChannel $ channel input
+       (tmp, _) <- mkstemp path
+       process <- runCommand $ "ffmpeg -i " ++ path ++ " -ss " ++ show start ++ " -to " ++ show end ++ " -c copy " ++ tmp ++ ".wav >/dev/null 2>/dev/null"
+       waitForProcess process
+       wave <- getWAVEFile (tmp ++ ".wav")
+       contents <- BS.readFile (tmp ++ ".wav")
        let encoding = "WAVE"
            sampleRate = waveFrameRate (waveHeader wave)
        r <- try $ post ("https://proxy.api.deepaffects.com/audio/generic/api/v2/sync/recognise_emotion?apikey=" ++ api_key) (toJSON $ VoiceAppSend
@@ -83,8 +89,8 @@ voiceapp api_key = mkDetectorT (\input ->
 voiceappLogin :: IO String
 voiceappLogin = putStrLn "Enter api key:" >> getLine
 
-voiceappFrom :: Voice String :<: r => String -> DetectorT r IO VoiceAppData
-voiceappFrom path = initDetectorT voiceapp (readFile path)
+voiceappFrom :: Voice String :<: r => String -> (Double,Double) -> DetectorT r IO VoiceAppData
+voiceappFrom path int = initDetectorT (`voiceapp` int) (readFile path)
 
-voiceappIO :: Voice String :<: r => DetectorT r IO VoiceAppData
-voiceappIO = initDetectorT voiceapp voiceappLogin
+voiceappIO :: Voice String :<: r => (Double,Double) -> DetectorT r IO VoiceAppData
+voiceappIO int = initDetectorT (`voiceapp` int) voiceappLogin
