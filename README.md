@@ -27,6 +27,8 @@ newtype Voice a = Voice { getVoiceChannel :: a }
 
 In order to work with generic combinators that are useful for all detectors regardless of their API and the results they return, we define a common interface to extract information about emotions.
 
+#### PAD
+
 One of the approaches used to represent emotions is the **dimensional approach**. According to this representation form, an emotion can be expressed as a point in a space of several dimensions, usually a 3D one. In this space, each axis represents an aspect of an emotion. The **PAD** format is one of the most common dimensional approaches, in which an emotion can be described with three coordinates. The first coordinate (**pleasure**, also called valence) states how positive or negative an emotion is; the second coordinate states the level of **arousal** linked to that emotion; finally, the last coordinate states how **dominant** or passive the person expressing that emotion feels. Each coordinate is usually expressed with a number between `-1` and `1`.
 
 ```haskell
@@ -36,6 +38,8 @@ data PAD = PAD {
     dominance :: Double
 } deriving (Eq, Show, Read)
 ```
+
+#### Ekman
 
 As a more comprehensive system to represent emotions, **categorical models** were proposed. According to this approach, an emotion is represented using a label from a closed set. In practice, these labels are usually paired with a number between `0` and `1` which expresses how confident the detector is about the presence of an emotion in piece of media. One of the most common set of labels used is the set of six basic emotions proposed by Ekman, according to whom there are six universally recognised emotions, which are happiness, sadness, disgust, anger, surprise and fear. Detectors usually include a seventh label, neutral, to indicate the absence of the other six emotions.
 
@@ -50,6 +54,8 @@ data Ekman = Ekman {
     neutral :: Double
 } deriving (Eq, Show, Read)
 ```
+
+#### Emotion typeclass
 
 We define the `Emotion` typeclass to generalize data types `e` that represent emotions, using three functions: `toPAD`, `toEkman` and `linearMap`. The first two functions convert a value of type `e` into a `PAD` or `Ekman` data, respectively. The `linearMap` function returns the linear mapping `M = [anger, disgust, fear, joy, sadness, surprise, neutral]` to be applied, if necessary.
 
@@ -96,7 +102,7 @@ faceapp (api_key, api_secret) = mkDetectorT (\input ->
                                Nothing   -> empty)
 ```
 
-### Example
+### Examples
 
 #### Functor
 
