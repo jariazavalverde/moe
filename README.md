@@ -1,8 +1,8 @@
 # Moe
 
-## A monadic multimodal emotion recognition framework to detect and combine emotions in Haskell
+> A monadic multimodal emotion recognition framework to detect and combine emotions in Haskell
 
-### Monadic detectors
+## Monadic detectors
 
 We need a mechanism for passing a fixed input to several detectors, so we model a detector as a **reader monad**, that is, a computation which can read values from a shared environment.
 
@@ -14,7 +14,7 @@ data DetectorT r m a = DetectorT {
 
 The `DetectorT` type constructor is parameterised with three types: the type `r` of the input that the detector takes to analyze emotions (the shared environment, ie., the channels), an underlaying monad `m` for describing the effects of the detector, and the type `a` of the output produced by the detector. We are interested in collecting the results of external emotion recognition services, so the detectors will usually require the `IO` monad to sending HTTP requests.
 
-### Channels
+## Channels
 
 We model a channel as a data type that acts as a container for the information to be analyzed by detectors. If we want to add new channels to our detectors, we just have to define a new data type.
 
@@ -23,7 +23,7 @@ newtype Face a = Face { getFaceChannel :: a }
 newtype Voice a = Voice { getVoiceChannel :: a }
 ```
 
-### Emotions
+## Emotions
 
 In order to work with generic combinators that are useful for all detectors regardless of their API and the results they return, we define a common interface to extract information about emotions.
 
@@ -59,7 +59,7 @@ data Ekman = Ekman {
 
 We define the `Emotion` typeclass to generalize data types `e` that represent emotions, using three functions: `toPAD`, `toEkman` and `linearMap`. The first two functions convert a value of type `e` into a `PAD` or `Ekman` data, respectively. The `linearMap` function returns the linear mapping `M = [anger, disgust, fear, joy, sadness, surprise, neutral]` to be applied, if necessary.
 
-### Multimodal detectors
+## Multimodal detectors
 
 We define a right-associative infix operator type (`:+:`) similar to built-in tuples (`,`) in order to create inputs with more than one channel.
 
@@ -102,7 +102,7 @@ faceapp (api_key, api_secret) = mkDetectorT (\input ->
                                Nothing   -> empty)
 ```
 
-### Examples
+## Examples
 
 #### Functor
 
